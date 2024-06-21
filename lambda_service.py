@@ -6,12 +6,10 @@ from datetime import datetime
 
 
 dynamodb = boto3.client("dynamodb")
-sns_client = boto3.client("sns")
 lambda_client = boto3.client("lambda")
 
 
 TABLE_NAME = os.environ["DYNAMODB_TABLE"]
-SYN_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 ASYNC_JOB_FUNC_NAME = os.environ["ASYNC_JOB_FUNC_NAME"]
 
 

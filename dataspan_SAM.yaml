@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AWS SAM template to create a Lambda function, EventBridge event bus, and SNS topic.
+
+Parameters:
+  NumOfConcurrentJobs:
+    Type: Number
+    Description: The number of concurrent executions for the Lambda function.
+    Default: 5
+    MinValue: 1  # Adjust as per your requirements
+
+Resources:
+  MyEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: MyEventBus
+
+  JobLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_service.service_handler
+      Runtime: python3.9
+      CodeUri: .
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref DynamoDBTable
+          ASYNC_JOB_FUNC_NAME: !GetAtt AsyncJobFunction.Arn
+
+  DelayLambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_async_job_runner.lambda_handler
+      CodeUri: .
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref MyEventBus
+
+  JobListenerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: lambda_job_listener.job_listener_handler
+      Runtime: python3.9
+      CodeUri: .
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref DynamoDBTable
+          SNS_TOPIC_ARN: !Ref SnsTopic 
+      Events:
+        EventBusTrigger:
+          Type: EventBridgeRule
+          Properties:
+            EventBusName: !Ref MyEventBus
+            EventPattern:
+              source:
+                - "aws.lambda"
+              detail-type:
+                - "Lambda Function Invocation Result"
+              detail:
+                status:
+                  - "Success"
+
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: MyDynamoDBTable
+      AttributeDefinitions:
+        - AttributeName: IdParam
+          AttributeType: S
+        - AttributeName: Status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: IdParam
+          KeyType: HASH
+        - AttributeName: Status
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: MySnsTopic
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource: !GetAtt DynamoDBTable.Arn
+        - PolicyName: SNSPublishAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref SnsTopic
+
+Outputs:
+  EventBusName:
+    Description: Event bus name
+    Value: !Ref MyEventBus
+
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref DelayLambdaFunction
+
+  SnsTopicArn:
+    Description: SNS topic ARN
+    Value: !Ref SnsTopic

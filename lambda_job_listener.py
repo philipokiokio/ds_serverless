@@ -4,11 +4,13 @@ import boto3
 
 
 dynamodb = boto3.client("dynamodb")
+sns_client = boto3.client("sms")
 
 TABLE_NAME = os.environ["DYNAMODB_TABLE"]
+SNS_TOPIC = os.environ["SNS_TOPIC_ARN"]
 
 
-def lambda_handler(event, context):
+def job_listener_handler(event, context):
 
     detail = json.loads(event["detail"])
     id_param = detail.get("id")
@@ -21,7 +23,12 @@ def lambda_handler(event, context):
             ExpressionAttributeNames={"#status": "Status"},
             ExpressionAttributeValues={":completed": {"S": "COMPLETED"}},
         )
-        # TODO SNS Topics Completion
+
+        message = json.dumps({"message": "Job completed", "id": id_param})
+        sns_client.publish(
+            TopicArn=SNS_TOPIC, Message=message, Subject="Job Completion Notification"
+        )
+
         return {
             "statusCode": 200,
             "body": json.dumps({"message": "Job status updated to COMPLETED"}),
