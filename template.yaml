@@ -18,42 +18,56 @@ Resources:
   JobLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      ContentUri: data_span
       Handler: lambda_service.service_handler
       Runtime: python3.9
-      CodeUri: .
+      CodeUri: lambda_service/
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref DynamoDBTable
-          ASYNC_JOB_FUNC_NAME: !GetAtt AsyncJobFunction.Arn
+          ASYNC_JOB_FUNC_NAME: !GetAtt DelayLambdaFunction.Arn
       Events:
         DelayHandler:
           Type: Api 
           Properties:
             Path: /dataspan/delay
             Method: post
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+        - Statement:
+            Effect: Allow
+            Action:
+              - lambda:InvokeFunction
+            Resource: !GetAtt DelayLambdaFunction.Arn
 
   DelayLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      ContentUri: data_span
       Handler: lambda_async_job_runner.lambda_handler
-      CodeUri: .
+      Runtime: python3.9
+      CodeUri: lambda_async_job_runner/
       Environment:
         Variables:
           EVENT_BUS_NAME: !Ref MyEventBus
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            Effect: Allow
+            Action:
+              - events:PutEvents
+            Resource: !Sub arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${MyEventBus}
 
   JobListenerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      ContentUri: data_span
       Handler: lambda_job_listener.job_listener_handler
       Runtime: python3.9
-      CodeUri: .
+      CodeUri: lambda_job_listener/
       Environment:
         Variables:
           DYNAMODB_TABLE: !Ref DynamoDBTable
-          SNS_TOPIC_ARN: !Ref SnsTopic 
+          SNS_TOPIC_ARN: !Ref SnsTopic
       Events:
         EventBusRule:
           Type: EventBridgeRule
@@ -65,37 +79,30 @@ Resources:
               detail-type:
                 - "LambdaFunctionCompleted"
       Policies:
-        - PolicyName: DynamoDBUpdatePolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:UpdateItem
-                Resource: !GetAtt DynamoDBTable.Arn
-        - PolicyName: SNSPublishPolicy
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sns:Publish
-                Resource: !Ref SnsTopic
-
+        - Statement:
+            Effect: Allow
+            Action:
+              - "dynamodb:UpdateItem"
+            Resource: !GetAtt DynamoDBTable.Arn
+        - Statement:
+            Effect: Allow
+            Action:
+              - "sns:Publish"
+            Resource: !Ref SnsTopic
 
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: MyDynamoDBTable
+      TableName: DataspanDynamoDBTable
       AttributeDefinitions:
         - AttributeName: IdParam
           AttributeType: S
-        - AttributeName: Status
+        - AttributeName: JobStatus
           AttributeType: S
       KeySchema:
         - AttributeName: IdParam
           KeyType: HASH
-        - AttributeName: Status
+        - AttributeName: JobStatus
           KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 5
@@ -106,45 +113,27 @@ Resources:
     Properties:
       TopicName: MySnsTopic
 
-  LambdaExecutionRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: DynamoDBAccess
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - dynamodb:PutItem
-                  - dynamodb:UpdateItem
-                  - dynamodb:Scan
-                Resource: !GetAtt DynamoDBTable.Arn
-        - PolicyName: SNSPublishAccess
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - sns:Publish
-                Resource: !Ref SnsTopic
-
 Outputs:
   EventBusName:
     Description: Event bus name
     Value: !Ref MyEventBus
 
-  LambdaFunctionName:
-    Description: Lambda function name
+  JobLambdaFunctionName:
+    Description: Job Lambda function name
+    Value: !Ref JobLambdaFunction
+
+  DelayLambdaFunctionName:
+    Description: Delay Lambda function name
     Value: !Ref DelayLambdaFunction
+
+  JobListenerFunctionName:
+    Description: Job Listener Lambda function name
+    Value: !Ref JobListenerFunction
 
   SnsTopicArn:
     Description: SNS topic ARN
     Value: !Ref SnsTopic
+
+  ApiUrl:
+    Description: "API Gateway endpoint URL for Prod environment"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/dataspan/delay"

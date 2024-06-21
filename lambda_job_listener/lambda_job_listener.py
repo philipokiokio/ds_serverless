@@ -4,23 +4,22 @@ import boto3
 
 
 dynamodb = boto3.client("dynamodb")
-sns_client = boto3.client("sms")
+sns_client = boto3.client("sns")
 
 TABLE_NAME = os.environ["DYNAMODB_TABLE"]
 SNS_TOPIC = os.environ["SNS_TOPIC_ARN"]
 
 
 def job_listener_handler(event, context):
-
     detail = json.loads(event["detail"])
     id_param = detail.get("id")
 
     if id_param:
         dynamodb.update_item(
             TableName=TABLE_NAME,
-            Key={"IdParam": {"S": id_param}, "Status": {"S": "ACTIVE"}},
-            UpdateExpression="SET #status = :completed",
-            ExpressionAttributeNames={"#status": "Status"},
+            Key={"IdParam": {"S": id_param}, "JobStatus": {"S": "ACTIVE"}},
+            UpdateExpression="SET #jobstatus = :completed",
+            ExpressionAttributeNames={"#jobstatus": "JobStatus"},
             ExpressionAttributeValues={":completed": {"S": "COMPLETED"}},
         )
 
