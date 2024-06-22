@@ -7,13 +7,14 @@ My Deployment URL= https://h7pdiewrb7.execute-api.us-east-1.amazonaws.com/Prod/d
 
 ### Stesps for Deployment.
 
-The easiest way to deploy the code in this repo is to clone the repo
+* The easiest way to deploy the code in this repo is to clone the repo
 
 ``` git clone git@github.com:philipokiokio/ds_serverless.git ```
 
-The next step is to export the ```AWS_SECRET``` and ```AWS_SECRET_KEY``` which is the alternative to the AWS SECRET embeded sucesssfully in the *environmnental_variables* of the computer.
-The next step is depended on the SAM cli installed:
+* The next step is to export the ```AWS_SECRET``` and ```AWS_SECRET_KEY``` which is the alternative to the AWS SECRET embeded sucesssfully in the *environmnental_variables* of the computer.
+
+* The next step is depended on the SAM cli installed [not need if SAM has been installed]:
 https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
 
-The command to deploy to AWS via sam is
-``` sam deploy --guided     ```
+* The command to deploy to AWS via sam is
+``` sam deploy --guided```
