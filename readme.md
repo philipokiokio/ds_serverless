@@ -18,3 +18,28 @@ https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/i
 
 * The command to deploy to AWS via sam is
 ``` sam deploy --guided```
+
+
+## Feedback Question
+
+##### suppose we want to apply this limit per user (say we have 12,000 users) - meaning that each user can have up to 5 concurrent jobs
+
+ answer: 
+
+ ```    
+    If the job is limited to 5 people the approach would include 
+    1. The user_uid: this can be extracted via the auth token.
+    2. The user_uid is store with every job record in dynamo db with the user_uid. 
+    3. This user_uid is then used to query the record of active job as such the filter case is user_uid== user_uid AND status=="ACTIVE"
+    4. This case above combine assures that it is impossible to have more than 5 when combine with the rest of the architecture.
+    
+```
+
+##### after handling millions of requests - how long will dynamodb.scan() take?
+answer: 
+```
+    I cant categorically state the answer to this question but from my experience with SQL DB's I will infer that it takes a few secs and here is why. The scan() function/method without a filter_case all the documents will be loaded in the memory, however with a filter_case say we are interest in all completed cases for a user we cut down the documents feteched.
+
+    I think a subset of data would be faster than loading all data into memory.
+
+```

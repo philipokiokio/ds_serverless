@@ -26,6 +26,13 @@ def service_handler(event, context):
         }
 
     try:
+        """
+        If the job is limited to 5 people the approach would include 
+        1. The User uid: 
+        """
+
+
+
         response = dynamodb.scan(
             TableName=TABLE_NAME,
             FilterExpression="JobStatus = :job_status",
